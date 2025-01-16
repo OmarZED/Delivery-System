@@ -1,5 +1,9 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 using WebApplication3.Interface;
 using WebApplication3.Maping;
 using WebApplication3.Models;
@@ -94,6 +98,69 @@ namespace WebApplication3.Repository
             {
                 _logger.LogError(ex, $"Error registering user with email {user.Email}.");
                 return false;
+            }
+
+        }
+        /// Updates an existing user
+        public async Task<bool> UpdateUserAsync(User user)
+        {
+            try
+            {
+                _context.Users.Update(user);
+                await _context.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error updating user with ID {user.Id}.");
+                return false;
+            }
+        }
+
+        /// Generates a JWT token for a user
+        public async Task<string> GenerateJwtToken(User user)
+        {
+            try
+            {
+                // Define claims based on user information
+                var claims = new[]
+                   {
+                    new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),  // User ID
+                    new Claim(JwtRegisteredClaimNames.Email, user.Email),       // User email
+                    new Claim(ClaimTypes.Name, user.UserName),                  // Username
+                    new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),   // User ID again for consistency
+                    new Claim("Name", user.Name),                               // Custom claim for Name
+                    new Claim("BirthDate", user.BirthDate.ToString("yyyy-MM-dd")), // Standardize date format
+                    new Claim("Address", user.Address),                         // Address
+                    new Claim("Gender", user.Gender.ToString())                 // Gender
+                 };
+
+                // Retrieve the signing key from configuration
+                var signingKey = _configuration["JWT:SigningKey"];
+                if (string.IsNullOrEmpty(signingKey))
+                {
+                    throw new InvalidOperationException("JWT SigningKey is missing in the configuration.");
+                }
+
+                var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey));
+                var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+                // Create the JWT token
+                var token = new JwtSecurityToken(
+                    issuer: _configuration["JWT:Issuer"],       // Issuer from configuration
+                    audience: _configuration["JWT:Audience"],  // Audience from configuration
+                    claims: claims,
+                    expires: DateTime.UtcNow.AddMinutes(60),   // Token expiration time
+                    signingCredentials: creds                  // Signing credentials
+                );
+
+                // Return the serialized token
+                return new JwtSecurityTokenHandler().WriteToken(token);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error generating JWT token for user {user.Email}.");
+                return null; // Or handle the exception as appropriate for your application
             }
 
         }
