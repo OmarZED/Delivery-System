@@ -1,5 +1,7 @@
 ﻿using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using WebApplication3.Dtos.DishDTo;
 using WebApplication3.Interface;
 using WebApplication3.Models.Enum;
@@ -105,5 +107,35 @@ namespace WebApplication3.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
-    
+        /// Retrieves the rating for a specific dish.
+
+        [HttpGet("{dishId}/rating")]
+        [Authorize]
+        [ProducesResponseType(200, Type = typeof(bool))]
+        [ProducesResponseType(401)]
+        public async Task<IActionResult> CanRateDish(Guid dishId)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (string.IsNullOrEmpty(userId))
+            {
+                _logger.LogWarning("Unauthorized user attempting to check if they can rate a dish.");
+                return Unauthorized();
+            }
+
+            try
+            {
+                bool canRate = await _ratingRepository.CanUserRateDishAsync(userId, dishId);
+                return Ok(canRate);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error checking if user can rate dish with ID {dishId}");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+    }
+}
+
+
 
