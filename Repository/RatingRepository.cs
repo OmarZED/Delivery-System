@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using WebApplication3.Dtos.Rating_Dto;
 using WebApplication3.Interface;
 using WebApplication3.Maping;
@@ -110,5 +111,32 @@ namespace WebApplication3.Repository
                 throw;
             }
         }
+        /// Retrieves the average rating for a dish.
+        public async Task<DishRatingDTO?> GetDishRatingAsync(Guid dishId)
+        {
+            try
+            {
+                var ratings = await _context.Ratings.Where(r => r.DishId == dishId).ToListAsync();
+                if (ratings == null || ratings.Count == 0)
+                {
+                    _logger.LogWarning($"No ratings found for dish with ID {dishId}.");
+                    return null;
+                }
+                var averageRating = ratings.Average(r => r.Score);
+
+                return new DishRatingDTO()
+                {
+                    DishId = dishId,
+                    AverageRating = averageRating,
+                    NumberOfRatings = ratings.Count
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting dish rating for dish with ID {dishId}.");
+                return null;
+            }
+        }
+
     }
 }
