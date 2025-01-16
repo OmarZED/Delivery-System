@@ -9,7 +9,10 @@ using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Text.Json.Serialization;
 using System.Text;
 using WebApplication3.Models;
-using WebApplication3.DbContext;
+
+using WebApplication3.Maping;
+using WebApplication3.Interface;
+using WebApplication3.Repository;
 
 namespace WebApplication3
 {
@@ -17,6 +20,8 @@ namespace WebApplication3
     {
         public static void Main(string[] args)
         {
+
+
             var builder = WebApplication.CreateBuilder(args);
 
             // Add services to the container.
@@ -53,7 +58,8 @@ namespace WebApplication3
                 }
             });
 
-             
+                // Add Operation Filter for Protected APIs
+                options.OperationFilter<AuthorizationOperationFilter>();
             });
 
             // Add JSON enum serialization
@@ -67,8 +73,14 @@ namespace WebApplication3
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
             });
 
-            // Removed Identity configurations
-
+            // Configure Identity
+            builder.Services.AddIdentity<User, IdentityRole>(options =>
+            {
+                options.Password.RequireDigit = true;
+                options.Password.RequireUppercase = true;
+                options.Password.RequiredLength = 8;
+            })
+            .AddEntityFrameworkStores<ApplicationDbContext>();
 
             // Configure Authentication
             builder.Services.AddAuthentication(options =>
@@ -104,6 +116,14 @@ namespace WebApplication3
                     };
                 });
 
+            // Register custom services
+            builder.Services.AddScoped<IDishRepositry, DishRepository>();
+            builder.Services.AddScoped<IUserRepositry, UserRepositry>();
+            builder.Services.AddScoped<IBasketRepository, BasketRepository>();
+            builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+            builder.Services.AddScoped<IRatingRepository, RatingRepository>();
+
+            builder.Services.AddAutoMapper(typeof(MappingProfiles).Assembly);
 
 
             var app = builder.Build();
@@ -120,6 +140,40 @@ namespace WebApplication3
             app.UseAuthorization();
             app.MapControllers();
             app.Run();
+        }
+    }
+
+    // Add the custom Operation Filter for Swagger
+    public class AuthorizationOperationFilter : IOperationFilter
+    {
+        public void Apply(OpenApiOperation operation, OperationFilterContext context)
+        {
+            // Find Authorize attributes at the controller or action level
+            var attributes = context.MethodInfo.DeclaringType.GetCustomAttributes(true)
+                               .Union(context.MethodInfo.GetCustomAttributes(true))
+                               .OfType<AuthorizeAttribute>();
+
+            if (attributes.Any())
+            {
+                // Add security requirements only to protected APIs
+                operation.Security = new List<OpenApiSecurityRequirement>
+            {
+                new OpenApiSecurityRequirement
+                {
+                    {
+                        new OpenApiSecurityScheme
+                        {
+                            Reference = new OpenApiReference
+                            {
+                                Id = "Bearer", // Match the defined SecurityScheme ID
+                                Type = ReferenceType.SecurityScheme
+                            }
+                        },
+                        Array.Empty<string>() // Scopes can be specified here if needed
+                    }
+                }
+            };
+            }
         }
     }
 }
