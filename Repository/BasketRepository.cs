@@ -161,6 +161,49 @@ namespace WebApplication3.Repository
                 return false;
             }
         }
+        private async Task<Basket> GetOrCreateBasketForUserAsync(string userId)
+        {
+            try
+            {
+                var basket = await _context.Baskets.FirstOrDefaultAsync(b => b.UserId == userId);
+                if (basket == null)
+                {
+                    basket = new Basket { UserId = userId, Id = Guid.NewGuid() };
+                    _context.Baskets.Add(basket);
+                    await _context.SaveChangesAsync();
+                }
+                return basket;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting or creating basket for user with ID {userId}.");
+                return null;
+            }
+
+        }
+
+        /// Retrieves the basket of a user with navigation properties
+        private async Task<Basket> GetUserBasketAsync(string userId)
+        {
+            try
+            {
+                return await _context.Baskets
+                 .Include(b => b.BasketItems)
+                  .FirstOrDefaultAsync(b => b.UserId == userId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting basket for user with ID {userId} with navigation properties.");
+                return null;
+            }
+        }
+
+        async Task<Basket?> IBasketRepository.GetUserBasketAsync(string userId)
+        {
+            return await _context.Baskets
+               .Include(b => b.BasketItems)
+                .FirstOrDefaultAsync(b => b.UserId == userId);
+        }
 
     }
 }
