@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using WebApplication3.Dtos.DishDTo;
+using WebApplication3.Dtos.Rating_Dto;
 using WebApplication3.Interface;
 using WebApplication3.Models.Enum;
 
@@ -134,6 +135,43 @@ namespace WebApplication3.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
+        [HttpPost("{dishId}/rate/{score}")]
+        [Authorize]
+        [ProducesResponseType(200, Type = typeof(RatingDTO))]
+        [ProducesResponseType(400)]
+        public async Task<IActionResult> CreateRating(Guid dishId, int score)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+            {
+                _logger.LogWarning("Unauthorized user attempting to create rating.");
+                return Unauthorized();
+            }
+
+            if (score < 1 || score > 5)
+            {
+                _logger.LogWarning($"Invalid score value {score} provided when creating a rating for dish with ID {dishId}");
+                return BadRequest("The score must be between 1 and 5.");
+            }
+
+            var createRatingDto = new CreateRatingDTO
+            {
+                Score = score
+            };
+
+
+            try
+            {
+                var rating = await _ratingRepository.CreateRatingAsync(createRatingDto, userId, dishId);
+                return Ok(rating);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error creating rating for dish with ID {dishId} by user ID {userId}");
+                return BadRequest(ex.Message);
+            }
+        }
+
     }
 }
 
