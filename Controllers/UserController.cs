@@ -172,6 +172,62 @@ namespace WebApplication3.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
+        /// Updates the profile information of the current user
+        [Authorize]
+        [HttpPut("UpdateProfile")]
+        [ProducesResponseType(200)]
+        [ProducesResponseType(400)]
+        [ProducesResponseType(404)]
+        public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileDto updateProfileDto)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    _logger.LogWarning("Invalid model state in update profile request.");
+                    return BadRequest(ModelState);
+                }
+
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier); // Adjust as per your claims
+                var user = await _userRepository.GetUserByIdAsync(userId);
+
+                if (user == null)
+                {
+                    _logger.LogWarning($"User not found with ID {userId} when updating profile.");
+                    return NotFound(new { Message = "User not found" });
+                }
+
+                // Update fields
+                user.Name = updateProfileDto.Name;
+                user.BirthDate = updateProfileDto.BirthDate;
+                user.Address = updateProfileDto.Address;
+                user.PhoneNumber = updateProfileDto.PhoneNumber.ToString();
+                user.Gender = updateProfileDto.Gender;
+
+                // Save changes
+                var isUpdated = await _userRepository.UpdateUserAsync(user);
+                if (!isUpdated)
+                {
+                    _logger.LogError($"Failed to update profile for user with ID {userId}");
+                    return BadRequest(new { Message = "Failed to update profile" });
+                }
+
+                return Ok(new { Message = "Profile updated successfully!" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating profile.");
+                return StatusCode(500, "Internal server error");
+            }
+
+        }
+
+        /// Checks if the password meet the complexity standards.
+        private bool IsPasswordStrong(string password)
+        {
+            // Example: Password should be at least 8 characters long and contain a mix of letters and numbers.
+            return password.Length >= 8 && password.Any(char.IsLetter) && password.Any(char.IsDigit);
+        }
     }
 }
    
