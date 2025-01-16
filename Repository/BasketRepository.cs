@@ -101,5 +101,66 @@ namespace WebApplication3.Repository
             }
 
         }
+        /// Removes a specific dish item from the user's basket
+        public async Task<BasketDTO?> RemoveFromBasketAsync(Guid dishId, string userId, bool increase)
+        {
+            try
+            {
+                var basket = await GetUserBasketAsync(userId);
+                if (basket == null)
+                {
+                    _logger.LogWarning($"Basket not found for user ID {userId} when removing item with ID {dishId}.");
+                    return null;
+                }
+
+                var itemToRemove = basket.BasketItems.FirstOrDefault(item => item.DishId == dishId);
+
+                if (itemToRemove != null)
+                {
+                    if (increase)
+                    {
+                        itemToRemove.Amount--;
+                        if (itemToRemove.Amount <= 0)
+                        {
+                            _context.BasketItems.Remove(itemToRemove);
+                        }
+
+                    }
+                    else
+                    {
+                        _context.BasketItems.Remove(itemToRemove);
+                    }
+                    await _context.SaveChangesAsync();
+                }
+                return await GetBasketAsync(userId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error removing item with ID {dishId} from basket for user with ID {userId}.");
+                return null;
+            }
+        }
+
+        /// Clears all items from the user's basket
+        public async Task<bool> ClearBasketAsync(string userId)
+        {
+            try
+            {
+                var basket = await GetUserBasketAsync(userId);
+                if (basket != null)
+                {
+                    _context.BasketItems.RemoveRange(basket.BasketItems);
+                    await _context.SaveChangesAsync();
+                    return true;
+                }
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error clearing basket for user with ID {userId}.");
+                return false;
+            }
+        }
+
     }
-    }
+}
