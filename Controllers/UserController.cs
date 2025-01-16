@@ -43,7 +43,7 @@ namespace WebApplication3.Controllers
                     return BadRequest(new { Message = "Email address is already taken." });
                 }
 
-                if (!IsPasswordStrong(registerDto.Password))
+                if (!IsPassworgtdStrong(registerDto.Password))
                 {
                     _logger.LogWarning("Password is too weak.");
                     return BadRequest(new { Message = "Password is too weak. Please ensure it contains a mix of letters, numbers, and special characters." });
