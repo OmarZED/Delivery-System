@@ -2,6 +2,7 @@
 using WebApplication3.Dtos.BasketDto;
 using WebApplication3.Dtos.DishDTo;
 using WebApplication3.Dtos.OrderDto;
+using WebApplication3.Dtos.Rating_Dto;
 using WebApplication3.Models;
 
 namespace WebApplication3.Maping
@@ -20,6 +21,9 @@ namespace WebApplication3.Maping
      .ForMember(dest => dest.OrderItems, opt => opt.MapFrom(src => src.OrderItems));
             CreateMap<OrderItem, OrderItemDTO>();
             CreateMap<Order, OrderInfoDTO>();
+
+            CreateMap<Rating, RatingDTO>();
+
         }
     }
 }
