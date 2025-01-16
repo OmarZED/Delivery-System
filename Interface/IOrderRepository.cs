@@ -1,4 +1,6 @@
-﻿namespace WebApplication3.Interface
+﻿using WebApplication3.Dtos.OrderDto;
+
+namespace WebApplication3.Interface
 {
     public interface IOrderRepository
     {
