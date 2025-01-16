@@ -76,6 +76,41 @@ namespace WebApplication3.Controllers
             }
 
         }
+        /// Logs in a user and generates a JWT token.
+        [HttpPost("Login")]
+        [ProducesResponseType(200)]
+        [ProducesResponseType(401)]
+        [ProducesResponseType(400)]
+        public async Task<IActionResult> Login([FromBody] LoginDto loginDto)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    _logger.LogWarning("Invalid model state in login request.");
+                    return BadRequest(new { Message = "Invalid data.", Errors = ModelState.Values.SelectMany(v => v.Errors) });
+                }
+
+
+                var isAuthenticated = await _userRepository.AuthenticateAsync(loginDto.Email, loginDto.Password);
+
+                if (!isAuthenticated)
+                {
+                    _logger.LogWarning($"Invalid email or password provided for user with email {loginDto.Email}.");
+                    return Unauthorized(new { message = "Invalid email or password." });
+                }
+
+                var user = await _userRepository.GetUserByEmailAsync(loginDto.Email);
+                var token = await _userRepository.GenerateJwtToken(user);
+
+                return Ok(new { message = "Login successful!", token });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error logging in user with email {loginDto.Email}.");
+                return StatusCode(500, "Internal server error");
+            }
+        }
     }
 }
    
