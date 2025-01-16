@@ -13,6 +13,10 @@ namespace WebApplication3.Maping
         public DbSet<Basket> Baskets { get; set; }
         public DbSet<BasketItem> BasketItems { get; set; }
 
+        public DbSet<Order> Orders { get; set; }
+        public DbSet<OrderItem> OrderItems { get; set; }
+        public DbSet<Rating> Ratings { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -38,6 +42,40 @@ namespace WebApplication3.Maping
                 .HasOne(bi => bi.Dish)
                 .WithMany() // Or WithMany(d => d.BasketItems) if Dish should have a navigation back
                 .HasForeignKey(bi => bi.DishId);
+
+            // Configure the relationship between User and Order (one-to-many)
+            modelBuilder.Entity<User>()
+                .HasMany(u => u.Orders)
+                .WithOne(o => o.User)
+                .HasForeignKey(o => o.UserId);
+
+            // Configure the relationship between Order and OrderItem (one-to-many)
+            modelBuilder.Entity<Order>()
+               .HasMany(o => o.OrderItems)
+               .WithOne(oi => oi.Order)
+               .HasForeignKey(oi => oi.OrderId);
+
+            // Configure the relationship between OrderItem and Dish (many-to-one)
+            modelBuilder.Entity<OrderItem>()
+                .HasOne(oi => oi.Dish)
+                .WithMany()
+                .HasForeignKey(oi => oi.DishId);
+
+            // Configure the relationship between OrderItem and Dish (many-to-one)
+            modelBuilder.Entity<OrderItem>()
+                .HasOne(oi => oi.Dish)
+                .WithMany()
+                .HasForeignKey(oi => oi.DishId);
+
+            modelBuilder.Entity<Rating>()
+                .HasOne(r => r.User)
+                .WithMany()
+                .HasForeignKey(r => r.UserId);
+
+            modelBuilder.Entity<Rating>()
+                .HasOne(r => r.Dish)
+                .WithMany()
+                .HasForeignKey(r => r.DishId);
 
 
         }
