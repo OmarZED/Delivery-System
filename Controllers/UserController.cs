@@ -1,5 +1,7 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using WebApplication3.Dtos.UserDto;
 using WebApplication3.Interface;
 using WebApplication3.Models;
@@ -108,6 +110,65 @@ namespace WebApplication3.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error logging in user with email {loginDto.Email}.");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+        [HttpPost("Logout")]
+        [Authorize]
+        [ProducesResponseType(200)]
+        public async Task<IActionResult> Logout()
+        {
+            try
+            {
+                await _userRepository.LogoutUserAsync();
+                return Ok(new { message = "User logged out successfully!" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error logging out user.");
+                return StatusCode(500, "Internal server error");
+            }
+
+        }
+        /// Gets the profile information of the current user.
+        [Authorize]
+        [HttpGet("Profile")]
+        [ProducesResponseType(200)]
+        [ProducesResponseType(400)]
+        [ProducesResponseType(404)]
+        public async Task<IActionResult> GetProfile()
+        {
+            try
+            {
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrEmpty(userId))
+                {
+                    _logger.LogWarning("Invalid or missing token provided when getting profile.");
+                    return BadRequest(new { Message = "Invalid or missing token." });
+                }
+
+                var user = await _userRepository.GetUserByIdAsync(userId);
+                if (user == null)
+                {
+                    _logger.LogWarning($"User not found for ID {userId}.");
+                    return NotFound(new { Message = "User not found." });
+                }
+
+                var userDto = new
+                {
+                    user.Id,
+                    user.Name,
+                    user.Email,
+                    user.BirthDate,
+                    user.Address,
+                    user.PhoneNumber
+                };
+                return Ok(userDto);
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting profile.");
                 return StatusCode(500, "Internal server error");
             }
         }
