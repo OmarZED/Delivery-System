@@ -104,5 +104,39 @@ namespace WebApplication3.Controllers
                 return BadRequest($"Error: {ex.Message}");
             }
         }
+
+        /// Removes a specific item from the user's basket
+        [HttpDelete("dish/{dishId}")]
+        [ProducesResponseType(200, Type = typeof(BasketDTO))]
+        [ProducesResponseType(400)]
+        [ProducesResponseType(404)]
+        public async Task<IActionResult> RemoveItem(Guid dishId, [FromQuery] bool increase = false)
+        {
+            try
+            {
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrEmpty(userId))
+                {
+                    _logger.LogWarning("Invalid user ID provided when removing item from basket.");
+                    return BadRequest(new { message = "Invalid user ID." });
+                }
+
+                var basket = await _basketRepository.RemoveFromBasketAsync(dishId, userId, increase);
+                if (basket == null)
+                {
+                    _logger.LogWarning($"Basket item with ID {dishId} not found when removing from basket.");
+                    return NotFound(new { message = "Basket item not found" });
+                }
+
+                return Ok(basket);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error removing item with ID {dishId} from basket.");
+                return StatusCode(500, new { message = "Internal server error", detail = ex.Message });
+            }
+        }
+
     }
 }
+
