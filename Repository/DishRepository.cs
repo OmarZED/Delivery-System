@@ -12,135 +12,107 @@ namespace WebApplication3.Repository
     {
 
         private readonly ApplicationDbContext _context;
-        private readonly IMapper _mapper;
-        private readonly ILogger<RatingRepository> _logger;
-        public RatingRepository(ApplicationDbContext context, IMapper mapper, ILogger<RatingRepository> logger)
+        private readonly ILogger<DishRepository> _logger;
+
+        public DishRepository(ApplicationDbContext context, ILogger<DishRepository> logger)
         {
-            _context = context;
-            _mapper = mapper;
-            _logger = logger;
+            _context = context ?? throw new ArgumentNullException(nameof(context));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        public async Task<bool> CanUserRateDishAsync(string userId, Guid dishId)
+        /// Checks if a dish exists with the given ID.
+        public bool DishExists(Guid id)
         {
             try
             {
-                // Check if the user has ordered the dish
-                bool dishInOrder = await _context.Orders
-                    .Where(o => o.UserId == userId)
-                    .AnyAsync(o => o.OrderItems.Any(oi => oi.DishId == dishId));
-
-                if (!dishInOrder)
-                {
-                    _logger.LogInformation($"User with ID {userId} has not ordered dish with ID {dishId} and cannot rate.");
-                    return false; // User cannot rate if they haven't ordered
-                }
-
-                // If the user has ordered the dish, they are allowed to rate (or update)
-                return true;
+                return _context.Dishes.Any(d => d.Id == id);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error checking if user {userId} can rate dish {dishId}.");
-                return false; // Consider a default of false for exceptions
+                _logger.LogError(ex, "Error checking if dish exists.");
+                throw; // Re-throw to indicate failure
             }
         }
 
-        /// Creates a new rating for a dish by a user
-        public async Task<RatingDTO?> CreateRatingAsync(CreateRatingDTO createRatingDto, string userId, Guid dishId)
+        /// Retrieves a single dish by its ID.
+        public Dish GetDish(Guid id)
         {
             try
             {
-                // Check if the user has ordered the dish using an optimized query
-                bool dishInOrder = await _context.Orders
-                   .Where(o => o.UserId == userId)
-                   .SelectMany(o => o.OrderItems)
-                   .AnyAsync(oi => oi.DishId == dishId);
-
-                if (!dishInOrder)
+                var dish = _context.Dishes.FirstOrDefault(d => d.Id == id);
+                if (dish == null)
                 {
-                    _logger.LogWarning($"User with ID {userId} has not ordered dish with ID {dishId} when creating rating.");
-                    throw new KeyNotFoundException("You have not ordered this dish");
+                    throw new KeyNotFoundException($"Dish with ID {id} not found.");
                 }
-
-                if (createRatingDto.Score < 1 || createRatingDto.Score > 5)
-                {
-                    _logger.LogWarning($"Invalid score value {createRatingDto.Score} provided when creating a rating for dish with ID {dishId}");
-                    throw new ArgumentException("The score must be between 1 and 5.");
-                }
-
-                // Check if a rating already exists for the user and dish
-                var existingRating = await _context.Ratings
-                    .FirstOrDefaultAsync(r => r.UserId == userId && r.DishId == dishId);
-
-                if (existingRating != null)
-                {
-                    // Update existing rating
-                    _logger.LogInformation($"Updating existing rating for dish {dishId} by user {userId}");
-                    existingRating.Score = createRatingDto.Score;
-                    existingRating.CreatedAt = DateTime.UtcNow; // Optionally update timestamp on update
-                    _context.Ratings.Update(existingRating);
-                    await _context.SaveChangesAsync();
-                    return _mapper.Map<RatingDTO>(existingRating);
-                }
-                else
-                {
-                    // Create new rating
-                    _logger.LogInformation($"Creating new rating for dish {dishId} by user {userId}");
-                    var rating = new Rating
-                    {
-                        Id = Guid.NewGuid(),
-                        DishId = dishId,
-                        UserId = userId,
-                        Score = createRatingDto.Score,
-                        CreatedAt = DateTime.UtcNow,
-                    };
-                    _context.Ratings.Add(rating);
-                    await _context.SaveChangesAsync();
-                    return _mapper.Map<RatingDTO>(rating);
-                }
+                return dish;
             }
             catch (KeyNotFoundException)
             {
-                throw;
-            }
-            catch (ArgumentException)
-            {
-                throw;
+                throw;// Re-throw KeyNotFoundException to let the caller know it can't be found
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error creating/updating rating for user with ID {userId} and dish ID {dishId}.");
-                throw;
+                _logger.LogError(ex, "Error getting dish.");
+                throw; // Re-throw to indicate a generic error
             }
         }
 
-        /// Retrieves the average rating for a dish.
-        public async Task<DishRatingDTO?> GetDishRatingAsync(Guid dishId)
+
+        /// Retrieves all dishes.
+        public ICollection<Dish> GetDishes()
         {
             try
             {
-                var ratings = await _context.Ratings.Where(r => r.DishId == dishId).ToListAsync();
-                if (ratings == null || ratings.Count == 0)
-                {
-                    _logger.LogWarning($"No ratings found for dish with ID {dishId}.");
-                    return null;
-                }
-                var averageRating = ratings.Average(r => r.Score);
-
-                return new DishRatingDTO()
-                {
-                    DishId = dishId,
-                    AverageRating = averageRating,
-
-                };
+                return _context.Dishes.OrderBy(d => d.Id).ToList();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error getting dish rating for dish with ID {dishId}.");
-                return null;
+                _logger.LogError(ex, "Error getting all dishes.");
+                throw;  // Re-throw to indicate failure
+
             }
         }
 
+        public async Task<ICollection<Dish>> GetDishes(Category[]? categories, bool? vegetarian, DishSorting? sortBy, int page = 1)
+        {
+            try
+            {
+                IQueryable<Dish> query = _context.Dishes;
+
+                if (categories != null && categories.Length > 0)
+                {
+                    query = query.Where(d => categories.Contains(d.Category));
+                }
+                if (vegetarian.HasValue)
+                {
+                    query = query.Where(d => d.Vegetarian == vegetarian.Value);
+                }
+
+                if (sortBy.HasValue)
+                {
+                    query = sortBy switch
+                    {
+                        DishSorting.NameAsc => query.OrderBy(d => d.Name),
+                        DishSorting.NameDesc => query.OrderByDescending(d => d.Name),
+                        DishSorting.PriceAsc => query.OrderBy(d => d.Price),
+                        DishSorting.PriceDesc => query.OrderByDescending(d => d.Price),
+                        _ => query.OrderBy(d => d.Id)
+                    };
+                }
+                else
+                {
+                    query = query.OrderBy(d => d.Id);
+                }
+
+
+                return await query.Skip((page - 1) * 10).ToListAsync();
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting dishes with filters and sorting.");
+                throw;  // Re-throw to indicate failure
+            }
+        }
     }
 }
