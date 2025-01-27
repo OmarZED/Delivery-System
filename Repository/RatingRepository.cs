@@ -120,7 +120,12 @@ namespace WebApplication3.Repository
                 if (ratings == null || ratings.Count == 0)
                 {
                     _logger.LogWarning($"No ratings found for dish with ID {dishId}.");
-                    return null;
+                    return new DishRatingDTO()
+                    {
+                        DishId = dishId,
+                        AverageRating = 0,
+                        NumberOfRatings = 0
+                    };
                 }
                 var averageRating = ratings.Average(r => r.Score);
 
@@ -134,7 +139,7 @@ namespace WebApplication3.Repository
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error getting dish rating for dish with ID {dishId}.");
-                return null;
+                throw;
             }
         }
 

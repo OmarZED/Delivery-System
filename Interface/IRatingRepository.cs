@@ -1,6 +1,6 @@
 ﻿using WebApplication3.Dtos.Rating_Dto;
 
-namespace WebApplication3.Repository
+namespace WebApplication3.Interface
 {
     public interface IRatingRepository
     {
