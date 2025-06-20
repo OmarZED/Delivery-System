@@ -29,19 +29,44 @@ namespace WebApplication3.Controllers
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(IEnumerable<DishDto>))]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> GetDishes(
-            [FromQuery] Category[]? categories,
-            [FromQuery] bool? Vegetarian,
-            [FromQuery] DishSorting? sortBy,
-            [FromQuery] int page = 1)
-        
-          public async Task<IActionResult> GetDishes([FromQuery] DishQueryParams query)
+        [HttpGet]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(IEnumerable<DishDto>))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> GetDishes([FromQuery] Category[]? categories, [FromQuery] bool? vegetarian, [FromQuery] DishSorting? sortBy, [FromQuery] int page = 1)
         {
-            var result = await _dishService.GetDishesWithRatingsAsync(query);
-            return Ok(result);
+            try
+            {
+                if (categories != null && categories.Any(c => !Enum.IsDefined(typeof(Category), c)))
+                {
+                    return BadRequest(new { message = $"Invalid category value provided. Valid values: {string.Join(", ", Enum.GetNames(typeof(Category)))}" });
+                }
+
+                var dishes = await _dishRepositry.GetDishes(categories, vegetarian, sortBy, page);
+                var dishDtos = await MapDishesWithRatingsAsync(dishes);
+
+                return Ok(dishDtos);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in GetDishes");
+                return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Internal server error", detail = ex.Message });
+            }
         }
 
-        
+        private async Task<IEnumerable<DishDto>> MapDishesWithRatingsAsync(IEnumerable<Models.Dish> dishes)
+        {
+            var dishDtos = new List<DishDto>();
+            foreach (var dish in dishes)
+            {
+                var dto = _mapper.Map<DishDto>(dish);
+                var rating = await _ratingRepository.GetDishRatingAsync(dish.Id);
+                if (rating != null)
+                    dto.Rating = rating.AverageRating;
+
+                dishDtos.Add(dto);
+            }
+            return dishDtos;
+        }
         /// Retrieves a single dish by its ID.
         [HttpGet("{id}")]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(DishDto))]
