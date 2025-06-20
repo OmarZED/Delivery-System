@@ -55,11 +55,7 @@ namespace WebApplication3.Maping
                .WithOne(oi => oi.Order)
                .HasForeignKey(oi => oi.OrderId);
 
-            // Configure the relationship between OrderItem and Dish (many-to-one)
-            modelBuilder.Entity<OrderItem>()
-                .HasOne(oi => oi.Dish)
-                .WithMany()
-                .HasForeignKey(oi => oi.DishId);
+
 
             // Configure the relationship between OrderItem and Dish (many-to-one)
             modelBuilder.Entity<OrderItem>()
