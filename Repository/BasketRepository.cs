@@ -18,7 +18,9 @@ namespace WebApplication3.Repository
             _logger = logger;
         }
 
-        /// Adds a dish to the user's basket or updates the quantity if the dish is already present
+        /// This method handles both creating a new basket item if it doesn't exist,
+        /// and updating the quantity if it does.
+        /// It also handles validation such as ensuring the basket exists for the user.
         public async Task<BasketDTO?> AddToBasketAsync(Guid dishId, int amount, string userId)
         {
             try
