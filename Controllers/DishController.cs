@@ -114,44 +114,32 @@ namespace WebApplication3.Controllers
         }
 
         [HttpPost("dish/{dishId}/rate/{score}")]
-        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(RatingDTO))]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> CreateRating(Guid dishId, int score)
         {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+                return BadRequest("Invalid user ID.");
+
+            if (score < 1 || score > 5)
+                return BadRequest("The score must be between 1 and 5.");
+
             try
             {
-                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                if (string.IsNullOrEmpty(userId))
-                {
-                    _logger.LogWarning("Invalid user ID when creating rating.");
-                    return BadRequest("Invalid user ID.");
-                }
-
-                if (score < 1 || score > 5)
-                {
-                    _logger.LogWarning($"Invalid score value {score} provided when creating a rating for dish with ID {dishId}");
-                    return BadRequest("The score must be between 1 and 5.");
-                }
-
                 var createRatingDto = new CreateRatingDTO { Score = score };
-
                 var rating = await _ratingRepository.CreateRatingAsync(createRatingDto, userId, dishId);
                 return Ok(rating);
             }
             catch (KeyNotFoundException ex)
             {
-                _logger.LogWarning($"Error creating rating for dish with ID {dishId} by user with id {User.FindFirstValue(ClaimTypes.NameIdentifier)}.");
                 return NotFound(new { message = ex.Message });
             }
             catch (ArgumentException ex)
             {
-                _logger.LogWarning($"Invalid rating provided when creating rating for dish with ID {dishId} by user with id {User.FindFirstValue(ClaimTypes.NameIdentifier)}.");
                 return BadRequest(new { message = ex.Message });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error creating rating for dish with ID {dishId} by user with id {User.FindFirstValue(ClaimTypes.NameIdentifier)}.");
+                _logger.LogError(ex, "Error in CreateRating");
                 return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Internal server error", detail = ex.Message });
             }
         }
