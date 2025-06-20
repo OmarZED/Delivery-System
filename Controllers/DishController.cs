@@ -67,7 +67,7 @@ namespace WebApplication3.Controllers
             }
             return dishDtos;
         }
-        /// Retrieves a single dish by its ID.
+
         [HttpGet("{id}")]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(DishDto))]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -77,59 +77,41 @@ namespace WebApplication3.Controllers
             try
             {
                 var dish = _dishRepositry.GetDish(id);
-                var dishDto = _mapper.Map<DishDto>(dish);
+                if (dish == null)
+                    return NotFound();
 
-                var ratingDto = await _ratingRepository.GetDishRatingAsync(id);
-                if (ratingDto != null)
-                    dishDto.Rating = ratingDto.AverageRating;
+                var dto = _mapper.Map<DishDto>(dish);
+                var rating = await _ratingRepository.GetDishRatingAsync(id);
+                if (rating != null)
+                    dto.Rating = rating.AverageRating;
 
-
-                if (!ModelState.IsValid)
-                {
-                    _logger.LogWarning($"Invalid model state when getting dish with ID {id}");
-                    return BadRequest(ModelState);
-                }
-
-
-                return Ok(dishDto);
-            }
-            catch (KeyNotFoundException ex)
-            {
-                _logger.LogWarning($"Dish with ID {id} not found.");
-                return NotFound(ex.Message);
+                return Ok(dto);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error getting dish with ID {id}");
+                _logger.LogError(ex, "Error in GetDish");
                 return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Internal server error", detail = ex.Message });
             }
         }
-        /// Retrieves the rating for a specific dish.
+
         [HttpGet("dish/{dishId}/canrate")]
-        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(bool))]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> CanRateDish(Guid dishId)
         {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+                return BadRequest("Invalid user ID.");
+
             try
             {
-                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                if (string.IsNullOrEmpty(userId))
-                {
-                    _logger.LogWarning("Invalid user ID when getting can rate dish.");
-                    return BadRequest("Invalid user ID.");
-                }
-
                 var canRate = await _ratingRepository.CanUserRateDishAsync(userId, dishId);
                 return Ok(canRate);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error checking if user can rate dish with ID {dishId}.");
+                _logger.LogError(ex, "Error in CanRateDish");
                 return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Internal server error", detail = ex.Message });
             }
         }
-
 
         [HttpPost("dish/{dishId}/rate/{score}")]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(RatingDTO))]
