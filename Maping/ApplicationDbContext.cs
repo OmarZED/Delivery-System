@@ -43,7 +43,10 @@ namespace WebApplication3.Maping
                 .WithMany() // Or WithMany(d => d.BasketItems) if Dish should have a navigation back
                 .HasForeignKey(bi => bi.DishId);
 
-            // Configure the relationship between User and Order (one-to-many)
+            // Configure the one-to-one relationship between User and Basket entities.
+            // Each User has one Basket, and each Basket is linked to exactly one User.
+            // The foreign key is Basket.UserId, which enforces this association in the database.
+            // This ensures referential integrity and navigational properties for Entity Framework Core.
             modelBuilder.Entity<User>()
                 .HasMany(u => u.Orders)
                 .WithOne(o => o.User)
