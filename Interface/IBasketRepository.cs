@@ -7,7 +7,8 @@ namespace WebApplication3.Interface
     {
         Task<BasketDTO?> AddToBasketAsync(Guid dishId, int amount, string userId);
         Task<BasketDTO?> GetBasketAsync(string userId);
-        Task<BasketDTO?> RemoveFromBasketAsync(Guid dishId, string userId, bool increase);
+        Task<BasketDTO?> RemoveItemFromBasketAsync(Guid dishId, string userId);
+        Task<BasketDTO?> UpdateBasketItemQuantityAsync(Guid dishId, string userId, bool increase);
         Task<bool> ClearBasketAsync(string userId);
         Task<Basket?> GetUserBasketAsync(string userId);
     }
