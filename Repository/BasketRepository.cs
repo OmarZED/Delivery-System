@@ -102,7 +102,38 @@ namespace WebApplication3.Repository
 
         }
         /// Removes a specific dish item from the user's basket
-        public async Task<BasketDTO?> RemoveFromBasketAsync(Guid dishId, string userId, bool increase)
+        public async Task<BasketDTO?> DecreaseItemQuantityAsync(Guid dishId, string userId)
+        {
+            try
+            {
+                var basket = await GetUserBasketAsync(userId);
+                if (basket == null)
+                {
+                    _logger.LogWarning($"Basket not found for user ID {userId} when decreasing quantity for item with ID {dishId}.");
+                    return null;
+                }
+
+                var item = basket.BasketItems.FirstOrDefault(i => i.DishId == dishId);
+                if (item != null)
+                {
+                    item.Amount--;
+                    if (item.Amount <= 0)
+                    {
+                        _context.BasketItems.Remove(item);
+                    }
+                    await _context.SaveChangesAsync();
+                }
+
+                return await GetBasketAsync(userId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error decreasing quantity for item with ID {dishId} from basket for user ID {userId}.");
+                return null;
+            }
+        }
+
+        public async Task<BasketDTO?> RemoveItemFromBasketAsync(Guid dishId, string userId)
         {
             try
             {
@@ -113,30 +144,18 @@ namespace WebApplication3.Repository
                     return null;
                 }
 
-                var itemToRemove = basket.BasketItems.FirstOrDefault(item => item.DishId == dishId);
-
-                if (itemToRemove != null)
+                var item = basket.BasketItems.FirstOrDefault(i => i.DishId == dishId);
+                if (item != null)
                 {
-                    if (increase)
-                    {
-                        itemToRemove.Amount--;
-                        if (itemToRemove.Amount <= 0)
-                        {
-                            _context.BasketItems.Remove(itemToRemove);
-                        }
-
-                    }
-                    else
-                    {
-                        _context.BasketItems.Remove(itemToRemove);
-                    }
+                    _context.BasketItems.Remove(item);
                     await _context.SaveChangesAsync();
                 }
+
                 return await GetBasketAsync(userId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error removing item with ID {dishId} from basket for user with ID {userId}.");
+                _logger.LogError(ex, $"Error removing item with ID {dishId} from basket for user ID {userId}.");
                 return null;
             }
         }
@@ -205,5 +224,9 @@ namespace WebApplication3.Repository
                 .FirstOrDefaultAsync(b => b.UserId == userId);
         }
 
+        public Task<BasketDTO?> UpdateBasketItemQuantityAsync(Guid dishId, string userId, bool increase)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
