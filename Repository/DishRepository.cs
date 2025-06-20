@@ -5,6 +5,7 @@ using WebApplication3.Models.Enum;
 using WebApplication3.Models;
 using AutoMapper;
 using WebApplication3.Dtos.Rating_Dto;
+using WebApplication3.Dtos.DishDTo;
 
 namespace WebApplication3.Repository
 {
@@ -59,17 +60,17 @@ namespace WebApplication3.Repository
 
 
         /// Retrieves all dishes.
-        public ICollection<Dish> GetDishes()
+        public async Task<Dish?> GetDishAsync(Guid id)
         {
             try
             {
-                return _context.Dishes.OrderBy(d => d.Id).ToList();
+                var dish = await _context.Dishes.FirstOrDefaultAsync(d => d.Id == id);
+                return _mapper.Map<Dish>(dish);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting all dishes.");
-                throw;  // Re-throw to indicate failure
-
+                _logger.LogError(ex, $"Error retrieving dish with ID {id}");
+                throw;
             }
         }
 
@@ -113,6 +114,11 @@ namespace WebApplication3.Repository
                 _logger.LogError(ex, "Error getting dishes with filters and sorting.");
                 throw;  // Re-throw to indicate failure
             }
+        }
+
+        public Task<ICollection<Dish>> GetDishes(DishQueryParams queryParams)
+        {
+            throw new NotImplementedException();
         }
     }
 }
