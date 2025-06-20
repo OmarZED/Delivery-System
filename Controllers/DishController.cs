@@ -34,36 +34,14 @@ namespace WebApplication3.Controllers
             [FromQuery] bool? Vegetarian,
             [FromQuery] DishSorting? sortBy,
             [FromQuery] int page = 1)
+        
+          public async Task<IActionResult> GetDishes([FromQuery] DishQueryParams query)
         {
-            try
-            {
-                if (categories != null && categories.Any(c => !Enum.IsDefined(typeof(Category), c)))
-                {
-                    _logger.LogWarning($"Invalid category value provided. Valid values: {string.Join(", ", Enum.GetNames(typeof(Category)))}");
-                    return BadRequest(new { message = $"Invalid category value provided. Valid values: {string.Join(", ", Enum.GetNames(typeof(Category)))}" });
-                }
-
-                var dishes = await _dishRepositry.GetDishes(categories, Vegetarian, sortBy, page);
-
-
-                // Get the rating for each dish, map it to DTO, and return the result.
-                var dishDtos = await Task.WhenAll(dishes.Select(async dish =>
-                {
-                    var dishDto = _mapper.Map<DishDto>(dish);
-                    var ratingDto = await _ratingRepository.GetDishRatingAsync(dish.Id);
-                    if (ratingDto != null)
-                        dishDto.Rating = ratingDto.AverageRating;
-                    return dishDto;
-                }));
-
-                return Ok(dishDtos);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error in GetDishes");
-                return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Internal server error", detail = ex.Message });
-            }
+            var result = await _dishService.GetDishesWithRatingsAsync(query);
+            return Ok(result);
         }
+
+        
         /// Retrieves a single dish by its ID.
         [HttpGet("{id}")]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(DishDto))]
