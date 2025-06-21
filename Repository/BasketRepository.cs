@@ -17,10 +17,9 @@ namespace WebApplication3.Repository
             _context = context;
             _logger = logger;
         }
-
-        /// This method handles both creating a new basket item if it doesn't exist,
-        /// and updating the quantity if it does.
-        /// It also handles validation such as ensuring the basket exists for the user.
+        /// <summary>
+        /// Adds a dish to the user's basket or updates the quantity if the dish already exists.
+        /// </summary>
         public async Task<BasketDTO?> AddToBasketAsync(Guid dishId, int amount, string userId)
         {
             try
@@ -30,9 +29,10 @@ namespace WebApplication3.Repository
 
                 if (dish == null)
                 {
-                    _logger.LogWarning($"Dish with ID {dishId} not found when adding to basket.");
+                    LogErrorWithContext(null, "Dish not found when adding to basket.", userId, dishId);
                     return null;
                 }
+
                 var existingItem = basket.BasketItems.FirstOrDefault(item => item.DishId == dishId);
 
                 if (existingItem != null)
@@ -43,7 +43,6 @@ namespace WebApplication3.Repository
                 {
                     var newItem = new BasketItem
                     {
-
                         BasketId = basket.Id,
                         DishId = dishId,
                         Amount = amount,
@@ -59,11 +58,11 @@ namespace WebApplication3.Repository
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error adding dish with ID {dishId} to basket for user with ID {userId}.");
+                LogErrorWithContext(ex, "Error adding dish to basket.", userId, dishId);
                 return null;
             }
-
         }
+
 
         /// Retrieves the basket of a user by its ID
         public async Task<BasketDTO?> GetBasketAsync(string userId)
