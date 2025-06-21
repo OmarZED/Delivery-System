@@ -103,15 +103,18 @@ namespace WebApplication3.Repository
                 return null;
             }
         }
-        /// Removes a specific dish item from the user's basket
+
+        /// <summary>
+        /// Decreases the quantity of a specific dish item in the basket.
+        /// </summary>
         public async Task<BasketDTO?> DecreaseItemQuantityAsync(Guid dishId, string userId)
         {
             try
             {
-                var basket = await GetUserBasketAsync(userId);
+                var basket = await LoadUserBasketWithItemsAsync(userId);
                 if (basket == null)
                 {
-                    _logger.LogWarning($"Basket not found for user ID {userId} when decreasing quantity for item with ID {dishId}.");
+                    LogErrorWithContext(null, "Basket not found when decreasing item quantity.", userId, dishId);
                     return null;
                 }
 
@@ -130,10 +133,11 @@ namespace WebApplication3.Repository
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error decreasing quantity for item with ID {dishId} from basket for user ID {userId}.");
+                LogErrorWithContext(ex, "Error decreasing item quantity.", userId, dishId);
                 return null;
             }
         }
+
 
         public async Task<BasketDTO?> RemoveItemFromBasketAsync(Guid dishId, string userId)
         {
