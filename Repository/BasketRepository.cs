@@ -64,22 +64,25 @@ namespace WebApplication3.Repository
         }
 
 
-        /// Retrieves the basket of a user by its ID
+        /// <summary>
+        /// Retrieves the basket of a user by user ID.
+        /// </summary>
         public async Task<BasketDTO?> GetBasketAsync(string userId)
         {
             try
             {
                 var basket = await _context.Baskets
-                .Include(b => b.BasketItems)
-                .ThenInclude(bi => bi.Dish)
-                .FirstOrDefaultAsync(b => b.UserId == userId);
+                    .Include(b => b.BasketItems)
+                    .ThenInclude(bi => bi.Dish)
+                    .FirstOrDefaultAsync(b => b.UserId == userId);
 
                 if (basket == null)
                 {
-                    _logger.LogWarning($"Basket not found for user ID {userId}.");
+                    LogErrorWithContext(null, "Basket not found.", userId);
                     return null;
                 }
-                var basketDto = new BasketDTO
+
+                return new BasketDTO
                 {
                     Id = basket.Id,
                     UserId = basket.UserId,
@@ -93,14 +96,12 @@ namespace WebApplication3.Repository
                         Amount = x.Amount
                     }).ToList()
                 };
-                return basketDto;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error getting basket for user with ID {userId}.");
+                LogErrorWithContext(ex, "Error getting basket.", userId);
                 return null;
             }
-
         }
         /// Removes a specific dish item from the user's basket
         public async Task<BasketDTO?> DecreaseItemQuantityAsync(Guid dishId, string userId)
