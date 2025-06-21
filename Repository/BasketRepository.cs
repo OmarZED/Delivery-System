@@ -168,12 +168,14 @@ namespace WebApplication3.Repository
                 return null;
             }
         }
-        /// Clears all items from the user's basket
+        /// <summary>
+        /// Clears all items from the user's basket.
+        /// </summary>
         public async Task<bool> ClearBasketAsync(string userId)
         {
             try
             {
-                var basket = await GetUserBasketAsync(userId);
+                var basket = await LoadUserBasketWithItemsAsync(userId);
                 if (basket != null)
                 {
                     _context.BasketItems.RemoveRange(basket.BasketItems);
@@ -184,10 +186,11 @@ namespace WebApplication3.Repository
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error clearing basket for user with ID {userId}.");
+                LogErrorWithContext(ex, "Error clearing basket.", userId);
                 return false;
             }
         }
+
         private async Task<Basket> GetOrCreateBasketForUserAsync(string userId)
         {
             try
@@ -203,38 +206,35 @@ namespace WebApplication3.Repository
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error getting or creating basket for user with ID {userId}.");
+                LogErrorWithContext(ex, "Error getting or creating basket.", userId);
                 return null;
             }
-
         }
 
-        /// Retrieves the basket of a user with navigation properties
-        private async Task<Basket> GetUserBasketAsync(string userId)
+        private async Task<Basket> LoadUserBasketWithItemsAsync(string userId)
         {
             try
             {
                 return await _context.Baskets
-                 .Include(b => b.BasketItems)
-                  .FirstOrDefaultAsync(b => b.UserId == userId);
+                    .Include(b => b.BasketItems)
+                    .FirstOrDefaultAsync(b => b.UserId == userId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error getting basket for user with ID {userId} with navigation properties.");
+                LogErrorWithContext(ex, "Error loading basket with items.", userId);
                 return null;
             }
         }
 
-        async Task<Basket?> IBasketRepository.GetUserBasketAsync(string userId)
+        private void LogErrorWithContext(Exception ex, string message, string userId = "", Guid? dishId = null)
         {
-            return await _context.Baskets
-               .Include(b => b.BasketItems)
-                .FirstOrDefaultAsync(b => b.UserId == userId);
+            var contextInfo = $"User ID: {userId}, Dish ID: {dishId?.ToString() ?? "N/A"}";
+            _logger.LogError(ex, $"{message} | Context: {contextInfo}");
         }
 
-        public Task<BasketDTO?> UpdateBasketItemQuantityAsync(Guid dishId, string userId, bool increase)
+        async Task<Basket?> IBasketRepository.GetUserBasketAsync(string userId)
         {
-            throw new NotImplementedException();
+            return await _context.Baskets.Include(b => b.BasketItems).FirstOrDefaultAsync(b => b.UserId == userId);
         }
     }
 }
