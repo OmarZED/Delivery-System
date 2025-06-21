@@ -13,18 +13,20 @@ namespace WebApplication3.Controllers
     [ApiController]
     public class UserController : ControllerBase
     {
-        private readonly IUserRepositry _userRepository;
+        private readonly IUserRepository _userRepository;
         private readonly UserManager<User> _userManager;
         private readonly ILogger<UserController> _logger;
 
-        public UserController(IUserRepositry userRepository, UserManager<User> userManager, ILogger<UserController> logger)
+        public UserController(IUserRepository userRepository, UserManager<User> userManager, ILogger<UserController> logger)
         {
             _userRepository = userRepository;
             _userManager = userManager;
             _logger = logger;
         }
 
+        /// <summary>
         /// Registers a new user.
+        /// </summary>
         [HttpPost("Register")]
         [ProducesResponseType(200)]
         [ProducesResponseType(400)]
@@ -41,44 +43,41 @@ namespace WebApplication3.Controllers
                 var existingUser = await _userRepository.GetUserByEmailAsync(registerDto.EmailAddress);
                 if (existingUser != null)
                 {
-                    _logger.LogWarning($"Attempt to register user with already registered email {registerDto.EmailAddress}.");
+                    _logger.LogWarning($"Email already taken: {registerDto.EmailAddress}");
                     return BadRequest(new { Message = "Email address is already taken." });
                 }
 
                 if (!IsPasswordStrong(registerDto.Password))
                 {
-                    _logger.LogWarning("Password is too weak.");
-                    return BadRequest(new { Message = "Password is too weak. Please ensure it contains a mix of letters, numbers, and special characters." });
+                    return BadRequest(new { Message = "Password is too weak. Use at least 8 characters, with letters and numbers." });
                 }
 
                 var user = new User
                 {
-                    UserName = registerDto.EmailAddress, // Required for UserManager
+                    UserName = registerDto.EmailAddress,
                     Email = registerDto.EmailAddress,
                     Name = registerDto.Name,
                     Address = registerDto.Address,
                     PhoneNumber = registerDto.PhoneNumber.ToString(),
-                    BirthDate = registerDto.BirthDate,
-
+                    BirthDate = registerDto.BirthDate
                 };
 
                 var isRegistered = await _userRepository.RegisterUserAsync(user, registerDto.Password);
 
-                if (isRegistered)
-                    return Ok(new { Message = "User registered successfully!" });
-
-                _logger.LogError($"Registration failed for user with email {user.Email}.");
-                return BadRequest(new { Message = "Registration failed." });
-
+                return isRegistered
+                    ? Ok(new { Message = "User registered successfully!" })
+                    : BadRequest(new { Message = "Registration failed." });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error in Register");
+                _logger.LogError(ex, "Unexpected error during registration.");
                 return StatusCode(500, "Internal server error");
             }
-
         }
-        /// Logs in a user and generates a JWT token.
+
+        /// <summary>
+        /// Logs in a user and returns a JWT token.
+        /// </summary>
         [HttpPost("Login")]
         [ProducesResponseType(200)]
         [ProducesResponseType(401)]
@@ -89,16 +88,13 @@ namespace WebApplication3.Controllers
             {
                 if (!ModelState.IsValid)
                 {
-                    _logger.LogWarning("Invalid model state in login request.");
-                    return BadRequest(new { Message = "Invalid data.", Errors = ModelState.Values.SelectMany(v => v.Errors) });
+                    return BadRequest(new { Message = "Invalid login data." });
                 }
-
 
                 var isAuthenticated = await _userRepository.AuthenticateAsync(loginDto.Email, loginDto.Password);
 
                 if (!isAuthenticated)
                 {
-                    _logger.LogWarning($"Invalid email or password provided for user with email {loginDto.Email}.");
                     return Unauthorized(new { message = "Invalid email or password." });
                 }
 
@@ -109,10 +105,14 @@ namespace WebApplication3.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error logging in user with email {loginDto.Email}.");
+                _logger.LogError(ex, "Login failed.");
                 return StatusCode(500, "Internal server error");
             }
         }
+
+        /// <summary>
+        /// Logs out the authenticated user.
+        /// </summary>
         [HttpPost("Logout")]
         [Authorize]
         [ProducesResponseType(200)]
@@ -128,9 +128,11 @@ namespace WebApplication3.Controllers
                 _logger.LogError(ex, "Error logging out user.");
                 return StatusCode(500, "Internal server error");
             }
-
         }
-        /// Gets the profile information of the current user.
+
+        /// <summary>
+        /// Returns the profile info of the currently authenticated user.
+        /// </summary>
         [Authorize]
         [HttpGet("Profile")]
         [ProducesResponseType(200)]
@@ -143,14 +145,12 @@ namespace WebApplication3.Controllers
                 var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
                 if (string.IsNullOrEmpty(userId))
                 {
-                    _logger.LogWarning("Invalid or missing token provided when getting profile.");
-                    return BadRequest(new { Message = "Invalid or missing token." });
+                    return BadRequest(new { Message = "Invalid or missing user ID." });
                 }
 
                 var user = await _userRepository.GetUserByIdAsync(userId);
                 if (user == null)
                 {
-                    _logger.LogWarning($"User not found for ID {userId}.");
                     return NotFound(new { Message = "User not found." });
                 }
 
@@ -163,16 +163,19 @@ namespace WebApplication3.Controllers
                     user.Address,
                     user.PhoneNumber
                 };
-                return Ok(userDto);
 
+                return Ok(userDto);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting profile.");
+                _logger.LogError(ex, "Error retrieving user profile.");
                 return StatusCode(500, "Internal server error");
             }
         }
-        /// Updates the profile information of the current user
+
+        /// <summary>
+        /// Updates the profile info of the currently authenticated user.
+        /// </summary>
         [Authorize]
         [HttpPut("UpdateProfile")]
         [ProducesResponseType(200)]
@@ -184,51 +187,43 @@ namespace WebApplication3.Controllers
             {
                 if (!ModelState.IsValid)
                 {
-                    _logger.LogWarning("Invalid model state in update profile request.");
                     return BadRequest(ModelState);
                 }
 
-                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier); // Adjust as per your claims
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
                 var user = await _userRepository.GetUserByIdAsync(userId);
 
                 if (user == null)
                 {
-                    _logger.LogWarning($"User not found with ID {userId} when updating profile.");
-                    return NotFound(new { Message = "User not found" });
+                    return NotFound(new { Message = "User not found." });
                 }
 
-                // Update fields
                 user.Name = updateProfileDto.Name;
                 user.BirthDate = updateProfileDto.BirthDate;
                 user.Address = updateProfileDto.Address;
                 user.PhoneNumber = updateProfileDto.PhoneNumber.ToString();
                 user.Gender = updateProfileDto.Gender;
 
-                // Save changes
                 var isUpdated = await _userRepository.UpdateUserAsync(user);
-                if (!isUpdated)
-                {
-                    _logger.LogError($"Failed to update profile for user with ID {userId}");
-                    return BadRequest(new { Message = "Failed to update profile" });
-                }
 
-                return Ok(new { Message = "Profile updated successfully!" });
+                return isUpdated
+                    ? Ok(new { Message = "Profile updated successfully!" })
+                    : BadRequest(new { Message = "Failed to update profile." });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating profile.");
+                _logger.LogError(ex, "Error updating user profile.");
                 return StatusCode(500, "Internal server error");
             }
-
         }
 
-        /// Checks if the password meet the complexity standards.
+        /// <summary>
+        /// Validates the strength of a password.
+        /// </summary>
         private bool IsPasswordStrong(string password)
         {
-            // Example: Password should be at least 8 characters long and contain a mix of letters and numbers.
             return password.Length >= 8 && password.Any(char.IsLetter) && password.Any(char.IsDigit);
         }
     }
 }
-   
-    
+
