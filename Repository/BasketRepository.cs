@@ -139,14 +139,17 @@ namespace WebApplication3.Repository
         }
 
 
+        /// <summary>
+        /// Removes a specific dish item from the user's basket.
+        /// </summary>
         public async Task<BasketDTO?> RemoveItemFromBasketAsync(Guid dishId, string userId)
         {
             try
             {
-                var basket = await GetUserBasketAsync(userId);
+                var basket = await LoadUserBasketWithItemsAsync(userId);
                 if (basket == null)
                 {
-                    _logger.LogWarning($"Basket not found for user ID {userId} when removing item with ID {dishId}.");
+                    LogErrorWithContext(null, "Basket not found when removing item.", userId, dishId);
                     return null;
                 }
 
@@ -161,11 +164,10 @@ namespace WebApplication3.Repository
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error removing item with ID {dishId} from basket for user ID {userId}.");
+                LogErrorWithContext(ex, "Error removing item from basket.", userId, dishId);
                 return null;
             }
         }
-
         /// Clears all items from the user's basket
         public async Task<bool> ClearBasketAsync(string userId)
         {
