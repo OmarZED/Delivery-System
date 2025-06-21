@@ -7,7 +7,6 @@ using WebApplication3.Interface;
 
 namespace WebApplication3.Controllers
 {
-
     [Authorize]
     [ApiController]
     [Route("api/basket")]
@@ -24,36 +23,34 @@ namespace WebApplication3.Controllers
             _logger = logger;
         }
 
-        /// Retrieves the basket of the authenticated user
+        /// <summary>
+        /// Retrieves the basket of the authenticated user.
+        /// </summary>
         [HttpGet]
         [ProducesResponseType(200, Type = typeof(BasketDTO))]
         [ProducesResponseType(400)]
         [ProducesResponseType(404)]
         public async Task<IActionResult> GetBasket()
         {
+            var userId = GetUserId();
+            if (userId == null)
+                return BadRequest("Invalid user ID.");
+
             try
             {
-                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                if (string.IsNullOrEmpty(userId))
-                {
-                    _logger.LogWarning("Invalid user ID when getting basket.");
-                    return BadRequest("Invalid user ID.");
-                }
-
                 var basket = await _basketRepository.GetBasketAsync(userId);
                 if (basket == null)
                 {
-                    _logger.LogWarning($"Basket not found for user ID {userId} when getting basket.");
+                    _logger.LogWarning("Basket not found for user ID {UserId}", userId);
                     return NotFound("Basket not found.");
                 }
                 return Ok(basket);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting basket.");
+                LogError(ex, "Error getting basket.");
                 return StatusCode(500, "Internal server error");
             }
-
         }
 
         /// Adds a dish to the authenticated user's basket
