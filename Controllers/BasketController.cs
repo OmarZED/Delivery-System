@@ -92,26 +92,25 @@ namespace WebApplication3.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
-        /// Removes a specific item from the user's basket
+        /// <summary>
+        /// Removes a specific item from the user's basket. If increase=true, decreases quantity; else removes item.
+        /// </summary>
         [HttpDelete("dish/{dishId}")]
         [ProducesResponseType(200, Type = typeof(BasketDTO))]
         [ProducesResponseType(400)]
         [ProducesResponseType(404)]
         public async Task<IActionResult> RemoveItem(Guid dishId, [FromQuery] bool increase = false)
         {
+            var userId = GetUserId();
+            if (userId == null)
+                return BadRequest(new { message = "Invalid user ID." });
+
             try
             {
-                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                if (string.IsNullOrEmpty(userId))
-                {
-                    _logger.LogWarning("Invalid user ID provided when removing item from basket.");
-                    return BadRequest(new { message = "Invalid user ID." });
-                }
-
                 var basket = await _basketRepository.RemoveFromBasketAsync(dishId, userId, increase);
                 if (basket == null)
                 {
-                    _logger.LogWarning($"Basket item with ID {dishId} not found when removing from basket.");
+                    _logger.LogWarning("Basket item with ID {DishId} not found for user ID {UserId}", dishId, userId);
                     return NotFound(new { message = "Basket item not found" });
                 }
 
@@ -119,11 +118,29 @@ namespace WebApplication3.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error removing item with ID {dishId} from basket.");
+                LogError(ex, "Error removing item from basket.");
                 return StatusCode(500, new { message = "Internal server error", detail = ex.Message });
             }
         }
 
+        private string? GetUserId()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+            {
+                _logger.LogWarning("User ID not found in token.");
+                return null;
+            }
+            return userId;
+        }
+
+        private void LogError(Exception ex, string message)
+        {
+            var userId = GetUserId();
+            _logger.LogError(ex, "{Message} | User ID: {UserId}", message, userId ?? "unknown");
+        }
     }
 }
+
+
 
