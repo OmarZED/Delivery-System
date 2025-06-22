@@ -121,7 +121,7 @@ namespace WebApplication3.Controllers
             }
         }
 
-        /// 🔐 Helper method to extract authenticated user ID
+         //Helper method to extract authenticated user ID
         private string? GetAuthenticatedUserId(out IActionResult? errorResult)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
