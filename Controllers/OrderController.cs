@@ -17,7 +17,6 @@ namespace WebApplication3.Controllers
         private readonly IMapper _mapper;
         private readonly ILogger<OrderController> _logger;
 
-
         public OrderController(IBasketRepository basketRepository, IOrderRepository orderRepository, IMapper mapper, ILogger<OrderController> logger)
         {
             _basketRepository = basketRepository;
@@ -26,38 +25,25 @@ namespace WebApplication3.Controllers
             _logger = logger;
         }
 
-
         /// Creates a new order for the authenticated user.
         [HttpPost]
         [ProducesResponseType(200)]
         [ProducesResponseType(400)]
         public async Task<IActionResult> CreateOrder([FromBody] CreateOrderDTO createOrderDto)
         {
-            if (!User.Identity.IsAuthenticated)
-            {
-                _logger.LogWarning("Unauthenticated user attempt to create order.");
-                return BadRequest("User is not authenticated.");
-            }
+            var userId = GetAuthenticatedUserId(out var errorResult);
+            if (errorResult != null) return errorResult;
 
             try
             {
-                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-                if (string.IsNullOrEmpty(userId))
-                {
-                    _logger.LogWarning("User ID not found in the token when creating order.");
-                    return BadRequest("User ID not found in the token.");
-                }
-                await _orderRepository.CreateOrderAsync(createOrderDto, userId);
+                await _orderRepository.CreateOrderAsync(createOrderDto, userId!);
                 return Ok(new { message = "Order created successfully" });
-
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error creating order by user with ID {User.FindFirstValue(ClaimTypes.NameIdentifier)}.");
+                _logger.LogError(ex, $"Error creating order by user with ID {userId}.");
                 return BadRequest($"Error: {ex.Message}");
             }
-
         }
 
         /// Retrieves all orders placed by the authenticated user
@@ -66,15 +52,12 @@ namespace WebApplication3.Controllers
         [ProducesResponseType(400)]
         public async Task<IActionResult> GetUserOrders()
         {
+            var userId = GetAuthenticatedUserId(out var errorResult);
+            if (errorResult != null) return errorResult;
+
             try
             {
-                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                if (string.IsNullOrEmpty(userId))
-                {
-                    _logger.LogWarning("Invalid user ID when getting orders.");
-                    return BadRequest("Invalid user ID.");
-                }
-                var orders = await _orderRepository.GetUserOrdersAsync(userId);
+                var orders = await _orderRepository.GetUserOrdersAsync(userId!);
                 return Ok(orders);
             }
             catch (Exception ex)
@@ -82,8 +65,8 @@ namespace WebApplication3.Controllers
                 _logger.LogError(ex, "Error getting user orders.");
                 return StatusCode(500, "Internal server error");
             }
-
         }
+
         /// Retrieves a specific order by its ID.
         [HttpGet("{orderId}")]
         [ProducesResponseType(200, Type = typeof(OrderDTO))]
@@ -91,22 +74,18 @@ namespace WebApplication3.Controllers
         [ProducesResponseType(400)]
         public async Task<IActionResult> GetOrderById(Guid orderId)
         {
+            var userId = GetAuthenticatedUserId(out var errorResult);
+            if (errorResult != null) return errorResult;
+
             try
             {
-                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                if (string.IsNullOrEmpty(userId))
-                {
-                    _logger.LogWarning("Invalid user ID when getting order by id.");
-                    return BadRequest("Invalid user ID.");
-                }
-                var order = await _orderRepository.GetOrderByIdAsync(orderId, userId);
+                var order = await _orderRepository.GetOrderByIdAsync(orderId, userId!);
                 if (order == null)
                 {
                     _logger.LogWarning($"Order with ID {orderId} not found.");
                     return NotFound("Order not found");
                 }
                 return Ok(order);
-
             }
             catch (Exception ex)
             {
@@ -122,15 +101,12 @@ namespace WebApplication3.Controllers
         [ProducesResponseType(404)]
         public async Task<IActionResult> SetOrderStatusToDelivered(Guid orderId)
         {
+            var userId = GetAuthenticatedUserId(out var errorResult);
+            if (errorResult != null) return errorResult;
+
             try
             {
-                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                if (string.IsNullOrEmpty(userId))
-                {
-                    _logger.LogWarning("Invalid user ID when setting order status to delivered.");
-                    return BadRequest("Invalid user ID.");
-                }
-                var result = await _orderRepository.SetOrderStatusToDeliveredAsync(orderId, userId);
+                var result = await _orderRepository.SetOrderStatusToDeliveredAsync(orderId, userId!);
                 if (!result)
                 {
                     _logger.LogWarning($"Order with ID {orderId} not found when setting status to delivered.");
@@ -143,7 +119,20 @@ namespace WebApplication3.Controllers
                 _logger.LogError(ex, $"Error setting order with ID {orderId} to delivered.");
                 return StatusCode(500, "Internal server error");
             }
+        }
 
+        /// 🔐 Helper method to extract authenticated user ID
+        private string? GetAuthenticatedUserId(out IActionResult? errorResult)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+            {
+                _logger.LogWarning("User ID not found or invalid in the token.");
+                errorResult = BadRequest("Invalid or missing user ID.");
+                return null;
+            }
+            errorResult = null;
+            return userId;
         }
     }
 }

@@ -88,5 +88,68 @@ namespace WebApplication3.Repository
                 Image = item.Image
             }).ToList();
         }
+        /// Retrieves all orders placed by a specific user.
+        public async Task<List<OrderInfoDTO>> GetUserOrdersAsync(string userId)
+        {
+            try
+            {
+                var orders = await _context.Orders.Include(o => o.OrderItems)
+                  .Where(x => x.UserId == userId).ToListAsync();
+                return _mapper.Map<List<OrderInfoDTO>>(orders);
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting user orders for user with ID {userId}.");
+                return new List<OrderInfoDTO>();
+            }
+
+        }
+        /// Retrieves an order by its ID and user ID.
+        public async Task<OrderDTO?> GetOrderByIdAsync(Guid orderId, string userId)
+        {
+            try
+            {
+                var order = await _context.Orders
+                .Include(o => o.OrderItems).ThenInclude(oi => oi.Dish)
+                .FirstOrDefaultAsync(o => o.Id == orderId && o.UserId == userId);
+
+                if (order == null)
+                {
+                    _logger.LogWarning($"Order with ID {orderId} not found for user with ID {userId}.");
+                    return null;
+                }
+                return _mapper.Map<OrderDTO>(order);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting order with ID {orderId} for user with ID {userId}.");
+                return null;
+            }
+
+        }
+
+        /// Sets the status of an order to "Delivered".
+        public async Task<bool> SetOrderStatusToDeliveredAsync(Guid orderId, string userId)
+        {
+            try
+            {
+                var order = await _context.Orders.FirstOrDefaultAsync(o => o.Id == orderId && o.UserId == userId);
+
+                if (order == null)
+                {
+                    _logger.LogWarning($"Order with ID {orderId} not found for user ID {userId} when setting status to delivered.");
+                    return false;
+                }
+                order.Status = OrderStatus.Delivered;
+                await _context.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error setting order status to delivered for order with ID {orderId} for user with ID {userId}.");
+                return false;
+            }
+        }
     }
 }
